@@ -7,39 +7,39 @@ class LogAggregator:
         self.logs = {}
 
     def add_log(self, service, timestamp, message):
-
-        # Create service log list if it doesn't exist. Otherwise, add new log entry.
+        # Create service log list if it doesn't exist
         if service not in self.logs:
             self.logs[service] = []
-        else:
-            self.logs[service].append({
-                'timestamp': timestamp,
-                'message': message
-            })
+
+        # Add new log entry
+        self.logs[service].append({
+            'timestamp': timestamp,
+            'message': message
+        })
 
         # Remove old logs (older than 1 hour)
         self.clean_old_logs(service)
 
     def clean_old_logs(self, service):
-
         # Only keeping logs that are less than 1 hour old
-        recent_logs = []
-        for log in self.logs[service]:
-            if self.is_recent(log['timestamp']):
-                recent_logs.append(log)
+        if service in self.logs:
+            recent_logs = [
+                log for log in self.logs[service]
+                if self.is_recent(log['timestamp'])
+            ]
+            self.logs[service] = recent_logs
 
-        # Replace old logs with recent logs
-        self.logs[service] = recent_logs
-
-    # Check if the log is less than 1 hour old
     def is_recent(self, timestamp):
-
         # Parse timestamp and calculate difference between current time and log time
-        log_time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
-        current_time = datetime.now()
-        time_difference = current_time - log_time
+        try:
+            log_time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+            current_time = datetime.now()
+            time_difference = current_time - log_time
 
-        return time_difference < 3600
+            return time_difference.total_seconds() < 3600  # Less than 1 hour
+        except ValueError:
+            # If timestamp is invalid, consider it not recent
+            return False
 
     def get_logs(self, service, start_time, end_time):
         matching_logs = []
@@ -72,6 +72,8 @@ def add_log():
         return jsonify({'status': 'Log added successfully'}), 201
     except KeyError:
         return jsonify({'error': 'Missing required fields'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/logs', methods=['GET'])
